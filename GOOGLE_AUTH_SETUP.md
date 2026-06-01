@@ -40,8 +40,8 @@ In Supabase Dashboard → **Authentication > URL Configuration**:
 
 Add Redirect URLs:
 ```
-http://localhost:3000/api/auth/google-callback
-https://your-domain.com/api/auth/google-callback
+http://localhost:3000/auth/callback
+https://your-domain.com/auth/callback
 ```
 
 ## Environment Variables
@@ -57,26 +57,33 @@ NEXT_PUBLIC_SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### Login Flow
 1. User clicks "Sign in with Google" on login page
-2. Redirected to Google sign-in
-3. After authentication, redirected to `/api/auth/google-callback`
-4. Session is created and stored
-5. User is redirected to `/shop`
+2. Redirected to Google sign-in via Supabase
+3. After authentication, redirected to `/auth/callback`
+4. Callback page retrieves the session from Supabase
+5. Auth context listens to session changes via `onAuthStateChange`
+6. User is redirected to `/shop`
 
 ### Signup Flow
 1. User clicks "Sign up with Google" on signup page
-2. Same OAuth flow as login
+2. Same OAuth flow as login (Google account is automatically created in Supabase)
 3. User account is created in Supabase Auth
-4. User is redirected to `/shop`
+4. Session established and user is redirected to `/shop`
+
+### Session Management
+- Supabase automatically manages the session in browser storage
+- Auth context listens for session changes using `onAuthStateChange`
+- Session persists across page reloads
+- User info is extracted from Supabase session metadata
 
 ## Files Modified/Created
 
 - **Created:**
   - `lib/supabase.js` - Supabase client initialization
-  - `app/api/auth/google-callback/route.js` - OAuth callback handler
+  - `app/auth/callback/page.js` - OAuth callback handler and session check
   - `GOOGLE_AUTH_SETUP.md` - This setup guide
 
 - **Modified:**
-  - `app/providers.js` - Added `loginWithGoogle` method to AuthContext
+  - `app/providers.js` - Added `loginWithGoogle` method and Supabase session listener
   - `app/login/page.js` - Added Google sign-in button
   - `app/signup/page.js` - Added Google sign-up button
   - `package.json` - Added `@supabase/supabase-js` dependency
@@ -91,18 +98,27 @@ NEXT_PUBLIC_SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ## Troubleshooting
 
+### "No authorization code" Error
+- **Solution**: Make sure the redirect URL in Supabase is set to `http://localhost:3000/auth/callback` (or your production URL)
+- Check that Google OAuth is enabled in Supabase
+- Verify Google OAuth credentials are correctly added to Supabase
+- Clear browser cache and cookies, then try again
+
 ### "Invalid Client ID" Error
 - Verify Google OAuth credentials are correct in Supabase
 - Check that the Redirect URI in Google Console matches Supabase configuration
+- Ensure Google+ API is enabled in Google Cloud Console
 
 ### Redirect Loop
 - Ensure `.env.local` has correct Supabase URL and key
-- Check that redirect URL in Supabase includes `/api/auth/google-callback`
+- Check browser console for specific error messages
+- Verify `/auth/callback` route exists in your app
 
 ### User Not Logging In
 - Check browser console for errors
 - Verify Supabase project is active and Google provider is enabled
 - Clear cookies and try again
+- Check that `onAuthStateChange` listener is properly set up in providers.js
 
 ## Security Notes
 

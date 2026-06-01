@@ -12,6 +12,21 @@ export function AuthProvider({ children }) {
 
   const fetchUser = useCallback(async () => {
     try {
+      // First check Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // User is authenticated via Supabase OAuth
+        setUser({
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.user_metadata?.name || session.user.email,
+          avatar_url: session.user.user_metadata?.avatar_url,
+        });
+        return;
+      }
+
+      // Otherwise check our API
       const res = await fetch('/api/auth/me');
       if (res.ok) {
         const data = await res.json();
@@ -28,6 +43,26 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     fetchUser();
+
+    // Listen for auth state changes from Supabase
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.user_metadata?.name || session.user.email,
+          avatar_url: session.user.user_metadata?.avatar_url,
+        });
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, [fetchUser]);
 
   const login = async (email, password) => {
@@ -63,7 +98,7 @@ export function AuthProvider({ children }) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/api/auth/google-callback`,
+          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
         },
       });
       if (error) {
